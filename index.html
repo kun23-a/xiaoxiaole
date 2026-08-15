@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>消消乐 · 休闲解压</title>
+<style>
+  :root { --glow:#ff6e9c; --accent:#ff9a56; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; }
+  body {
+    font-family:"PingFang SC","Microsoft YaHei",sans-serif;
+    background:linear-gradient(160deg,#2a1e4f,#4a2458 45%,#1f3a5f);
+    color:#fff; min-height:100vh; padding:16px 12px 24px;
+    display:flex; flex-direction:column; align-items:center; overflow-x:hidden;
+    user-select:none; -webkit-user-select:none; position:relative;
+  }
+  /* 糖果光斑 */
+  .blob { position:fixed; border-radius:50%; filter:blur(70px); opacity:.32; z-index:0; pointer-events:none; animation:drift 16s ease-in-out infinite alternate; }
+  .blob.b1 { width:42vmax; height:42vmax; background:#ff6e9c; top:-14vmax; left:-12vmax; }
+  .blob.b2 { width:36vmax; height:36vmax; background:#5cd6ff; bottom:-12vmax; right:-10vmax; animation-delay:-6s; }
+  .blob.b3 { width:26vmax; height:26vmax; background:#ffb45c; top:32%; left:58%; opacity:.22; animation-delay:-11s; }
+  @keyframes drift { from { transform:translate(0,0) scale(1);} to { transform:translate(5vmax,4vmax) scale(1.18);} }
+  #app { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; width:100%; }
+  .hidden { display:none !important; }
+
+  h1 { font-size:24px; letter-spacing:8px; margin:6px 0 2px;
+       background:linear-gradient(90deg,#ffd54a,#ff9a56,#ff6e9c);
+       -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .sub { font-size:12px; opacity:.7; margin-bottom:8px; letter-spacing:3px; }
+
+  /* 模式切换 */
+  .modeSwitch { display:flex; gap:6px; background:rgba(255,255,255,.1); padding:5px; border-radius:99px; margin-top:12px; width:min(92vw,480px); }
+  .modeSwitch button { flex:1; border:none; background:transparent; color:rgba(255,255,255,.75); padding:10px 12px; border-radius:99px; font-size:14px; cursor:pointer; transition:all .2s; letter-spacing:2px; }
+  .modeSwitch button.active { background:linear-gradient(135deg,var(--glow),var(--accent)); color:#fff; box-shadow:0 4px 14px rgba(255,110,156,.45); }
+
+  /* 选关网格 */
+  .levelGrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(62px,1fr)); gap:10px; width:min(92vw,480px); margin-top:16px; }
+  .levelCard { aspect-ratio:1; background:linear-gradient(150deg,rgba(255,255,255,.18),rgba(255,255,255,.08)); border:1px solid rgba(255,255,255,.22); border-radius:16px; color:#fff; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; transition:transform .12s, box-shadow .15s, background .15s; }
+  .levelCard:hover { transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,.35); }
+  .levelCard:active { transform:scale(.92); }
+  .levelCard .lv { font-size:20px; font-weight:700; }
+  .levelCard .stars { font-size:10px; letter-spacing:1px; color:#ffd54a; }
+  .levelCard.locked { cursor:not-allowed; opacity:.5; filter:grayscale(.7); font-size:22px; }
+
+  .freeBtn { margin-top:20px; padding:14px 36px; font-size:17px; border-radius:99px; border:none; cursor:pointer; color:#fff; letter-spacing:3px;
+             background:linear-gradient(135deg,#ff6e7f,#ff9a56); box-shadow:0 8px 24px rgba(255,110,127,.4); transition:transform .12s, box-shadow .15s; }
+  .freeBtn:hover { transform:translateY(-2px); box-shadow:0 12px 30px rgba(255,110,127,.5); }
+  .freeBtn:active { transform:scale(.95); }
+
+  /* 游戏区顶栏 */
+  .gameTop { display:flex; align-items:center; justify-content:space-between; width:min(92vw,480px); margin-bottom:6px; }
+  .iconBtn { background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18); color:#fff; border-radius:12px; width:42px; height:42px; font-size:18px; cursor:pointer; transition:transform .1s, background .15s; }
+  .iconBtn:active { transform:scale(.88); background:rgba(255,255,255,.25); }
+
+  .hud { display:flex; gap:8px; margin:8px 0 4px; flex-wrap:wrap; justify-content:center; width:min(92vw,480px); }
+  .hud .box { background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.14); border-radius:14px; padding:6px 8px; text-align:center; flex:1; min-width:62px; backdrop-filter:blur(4px); }
+  .hud .label { font-size:10px; opacity:.65; letter-spacing:2px; }
+  .hud .value { font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .caption { font-size:12px; opacity:.8; letter-spacing:2px; margin-bottom:4px; }
+
+  /* 目标面板 */
+  .goals { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:6px; width:min(92vw,480px); }
+  .chip { background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18); border-radius:99px; padding:4px 12px; font-size:13px; display:inline-flex; align-items:center; gap:5px; transition:all .25s; }
+  .chip b { font-variant-numeric:tabular-nums; }
+  .chip.done { opacity:.45; text-decoration:line-through; }
+
+  #targetBar { height:8px; border-radius:99px; background:rgba(255,255,255,.12); overflow:hidden; margin:2px auto 10px; width:min(92vw,480px); }
+  #targetFill { height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#ff6e9c,#ffd54a); transition:width .3s; }
+  #targetFill.done { background:linear-gradient(90deg,#ffd54a,#5cd6ff); box-shadow:0 0 12px rgba(255,213,74,.7); }
+
+  #combo { color:#ffd54a; font-size:16px; font-weight:700; opacity:0; transition:opacity .2s; height:20px; margin-bottom:2px; text-shadow:0 0 10px rgba(255,213,74,.6); }
+
+  .stage { position:relative; width:min(92vw,480px); }
+  canvas { width:100%; height:auto; display:block; border-radius:18px;
+           box-shadow:0 12px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08);
+           touch-action:none; cursor:pointer; background:rgba(255,255,255,.05); }
+
+  .btns { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; justify-content:center; }
+  .btns button { background:linear-gradient(150deg,rgba(255,255,255,.16),rgba(255,255,255,.08)); color:#fff; border:1px solid rgba(255,255,255,.2); border-radius:999px; padding:9px 20px; font-size:14px; cursor:pointer; transition:transform .08s, background .15s, box-shadow .15s; letter-spacing:2px; }
+  .btns button:hover { box-shadow:0 6px 18px rgba(0,0,0,.3); }
+  .btns button:active { transform:scale(.94); background:rgba(255,255,255,.25); }
+
+  .tip { margin-top:14px; font-size:12px; opacity:.55; letter-spacing:1px; text-align:center; line-height:1.7; }
+
+  /* 弹窗 */
+  .overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(8,10,26,.55); backdrop-filter:blur(6px); z-index:50; }
+  .modal { background:linear-gradient(165deg,#3a2b6e,#241d4c); border:1px solid rgba(255,255,255,.18); border-radius:24px; padding:26px 30px 24px; text-align:center; min-width:min(86vw,340px); box-shadow:0 24px 60px rgba(0,0,0,.55); animation:modalIn .35s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes modalIn { from { transform:scale(.7) translateY(20px); opacity:0;} to { transform:scale(1) translateY(0); opacity:1;} }
+  .modalIcon { font-size:52px; margin-bottom:6px; animation:bounceIn .5s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes bounceIn { from { transform:scale(0);} to { transform:scale(1);} }
+  .modal h2 { font-size:22px; letter-spacing:4px; margin-bottom:8px; }
+  .modal .stars { margin:6px 0 10px; }
+  .star { font-size:42px; color:#555; display:inline-block; margin:0 6px; opacity:.35; }
+  .star.on { color:#ffd54a; opacity:1; text-shadow:0 0 18px rgba(255,213,74,.8); animation:starPop .5s cubic-bezier(.2,1.6,.4,1) backwards; }
+  @keyframes starPop { from { transform:scale(0) rotate(-40deg);} to { transform:scale(1) rotate(0);} }
+  .modal p { font-size:13px; opacity:.8; margin-bottom:16px; line-height:1.6; }
+  .modalBtns { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .modalBtns button { border:none; border-radius:99px; padding:10px 18px; font-size:14px; cursor:pointer; color:#fff; letter-spacing:1px; transition:transform .1s, box-shadow .15s; }
+  .modalBtns button:active { transform:scale(.93); }
+  #modalPrimary { background:linear-gradient(135deg,#ffd54a,#ff9a56); color:#3a2c00; font-weight:700; box-shadow:0 6px 18px rgba(255,154,86,.4); }
+  #modalSecondary { background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18); }
+  #modalBack { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); }
+
+  /* 彩带 */
+  .confetti { position:fixed; top:-8vh; z-index:60; pointer-events:none; animation:confettiFall 2.8s ease-in forwards; }
+  @keyframes confettiFall { to { transform:translateY(115vh) rotate(720deg); opacity:0; } }
+</style>
+</head>
+<body>
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+
+  <div id="app">
+    <h1>🍬 消消乐</h1>
+    <div class="sub">仿开心消消乐 · 休闲解压三消</div>
+
+    <!-- 菜单 / 选关 -->
+    <div id="menuPanel">
+      <div class="modeSwitch">
+        <button id="modeLevel" class="active">🎯 闯关模式</button>
+        <button id="modeFree">🧘 休闲模式</button>
+      </div>
+      <div id="levelGrid" class="levelGrid"></div>
+      <button id="freePlayBtn" class="freeBtn hidden">开始休闲模式</button>
+      <div class="tip">四连→条纹 · L/T→爆炸 · 五连→彩虹<br>点一下特效直接触发，两个特效交换有组合技</div>
+    </div>
+
+    <!-- 游戏区 -->
+    <div id="gamePanel" class="hidden">
+      <div class="gameTop">
+        <button id="backBtn" class="iconBtn">←</button>
+        <div class="hud" style="flex:1; margin:0 8px;">
+          <div class="box"><div class="label">关卡</div><div class="value" id="levelNum">1</div></div>
+          <div class="box" id="movesBox"><div class="label" id="movesLabel">步数</div><div class="value" id="moves">0</div></div>
+          <div class="box" id="targetBox"><div class="label" id="targetLabel">目标</div><div class="value" id="target">0</div></div>
+          <div class="box"><div class="label">分数</div><div class="value" id="score">0</div></div>
+        </div>
+        <button id="soundBtn" class="iconBtn">🔊</button>
+      </div>
+      <div class="caption" id="levelName">第 1 关 · 青茅山</div>
+      <div id="goals" class="goals"></div>
+      <div id="targetBar"><div id="targetFill"></div></div>
+      <div id="combo"></div>
+      <div class="stage"><canvas id="board"></canvas></div>
+      <div class="btns">
+        <button id="hintBtn">💡 提示</button>
+        <button id="shuffleBtn">🔄 洗牌</button>
+        <button id="restartBtn">🆕 重开</button>
+      </div>
+      <div class="tip">消除 3 个及以上同色棋子 · 连锁消除有连击加成</div>
+    </div>
+
+    <!-- 过关/失败弹窗 -->
+    <div id="overlay" class="overlay hidden">
+      <div class="modal">
+        <div class="modalIcon" id="modalIcon">🎉</div>
+        <h2 id="modalTitle">过关！</h2>
+        <div class="stars" id="modalStars"></div>
+        <p id="modalText"></p>
+        <div class="modalBtns">
+          <button id="modalPrimary">下一关 ▶</button>
+          <button id="modalSecondary">重玩</button>
+          <button id="modalBack">选关</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="levels.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
